@@ -670,5 +670,6 @@ if __name__ == '__main__':
     TRACKER.start()
     # if sys.platform == 'win32':
         # os.system('start http://127.0.0.1:8888/')
+    print('Listen on http://127.0.0.1:8888')
     APP.listen(8888, xheaders=True)
     tornado.ioloop.IOLoop.instance().start()

@@ -1,5 +1,5 @@
 ## xlmp
-FROM xenocider/container:python3.6.4
+FROM xenocider/container:python3.7.4
 LABEL maintainer="xenos <xenos.lu@gmail.com>"
 
             # runit \
@@ -7,7 +7,6 @@ LABEL maintainer="xenos <xenos.lu@gmail.com>"
 RUN apk add --no-cache \
             nginx \
             s6 &&\
-    # pip3 install tornado==5.1 &&\
     pip3 install tornado==5.1.1 &&\
     pip3 install xmltodict==0.11.0 &&\
     mkdir /run/nginx &&\

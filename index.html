@@ -7,7 +7,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="shortcut icon" href="/static/favicon.ico" />
     <link rel="apple-touch-icon" sizes="200x200" href="/static/apple-touch-icon.png" />
-    <!-- <link href="/static/css/bootstrap.min.css" rel="stylesheet"> -->
     <link href="{{ static_url('css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="/static/css/bootstrap-vue.css" rel="stylesheet">
     <link href="/static/css/open-iconic-bootstrap.css" rel="stylesheet">
@@ -54,7 +53,7 @@
                 DLNA Mode
               </b-dropdown-item>
               <b-dropdown-divider></b-dropdown-divider>
-              <b-dropdown-item @click="server.dlna_search(null,null)">
+              <b-dropdown-item @click="server.dlna_search().catch(window.appView.out)">
                 <i class="oi oi-magnifying-glass"></i>
                 Search Media Renderer
               </b-dropdown-item>
@@ -99,12 +98,14 @@
               <template slot="button-content">
                 <i class="oi oi-cog"></i>Maintainance
               </template>
-              <b-dropdown-item @click="server.db_backup()">backup</b-dropdown-item>
-              <b-dropdown-item @click="server.db_restore()">restore</b-dropdown-item>
+              <b-dropdown-item @click="server.db_backup().then(window.appView.out).catch(window.appView.out)">backup</b-dropdown-item>
+              <b-dropdown-item @click="server.db_restore().then(window.appView.out).catch(window.appView.out)">restore</b-dropdown-item>
               <b-dropdown-divider v-if="devMode"></b-dropdown-divider>
               <b-dropdown-item v-if="devMode" disabled>Develop Options</b-dropdown-item>
-              <b-dropdown-item v-if="devMode" @click="server.self_update()">update</b-dropdown-item>
-              <b-dropdown-item v-if="devMode" @click="server.test()">test</b-dropdown-item>
+              <b-dropdown-item v-if="devMode" @click="server.self_update().then(window.appView.out).catch(window.appView.out)">update</b-dropdown-item>
+              <b-dropdown-item v-if="devMode" @click="server.test().then(window.appView.out)">test</b-dropdown-item>
+              <b-dropdown-item v-if="devMode" @click="fixBar.show = false">hide nav</b-dropdown-item>
+              <b-dropdown-item v-if="devMode" @click="window.server = JsonRpc(jsonrpcAxios('/api'))">use ajax</b-dropdown-item>
             </b-nav-item-dropdown>
             <b-nav-item v-show="wpMode" @click="videoSizeToggle">${ video.sizeBtnText }</b-nav-item>
             <!-- web player rate menu -->
@@ -130,6 +131,7 @@
               </template>
               <b-dropdown-item @click="seek(15)">00:15</b-dropdown-item>
               <b-dropdown-item @click="seek(29)">00:30</b-dropdown-item>
+              <b-dropdown-item @click="seek(44)">00:45</b-dropdown-item>
               <b-dropdown-item @click="seek(60)">01:00</b-dropdown-item>
               <b-dropdown-item @click="seek(90)">01:30</b-dropdown-item>
             </b-nav-item-dropdown>
@@ -144,7 +146,7 @@
         <div v-show="browserShow" class="col-xs-12 col-sm-12 col-md-10 col-lg-8 col-xl-6 z-index-1040">
           <div class="card window">
             <div class="card-header"></div>
-            <div class="table-responsive-sm text-center auto-overflow">
+            <div class="table-responsive-sm text-center auto-overflow" style="min-height: 30vh;">
               <table v-show="historyShow" class="table table-striped table-sm">
                 <tr v-for="item in history">
                   <td v-show="editMode" class="iconOnly">
@@ -173,7 +175,7 @@
                       <b-dropdown-item @click="open(item.fullpath, 'mp4')">
                         <i class="oi oi-media-play"></i> Play
                       </b-dropdown-item>
-                      <b-dropdown-item @click="server.dlna_next({src: item.fullpath, host: window.location.host})" v-if="devMode">
+                      <b-dropdown-item @click="server.dlna_next(item.fullpath, window.location.host).then(window.appView.out).catch(window.appView.out)" v-if="devMode">
                         <i class="oi oi-media-step-forward"></i> Play next through DLNA
                       </b-dropdown-item>
                       <b-dropdown-item @click="open(item.path, 'folder')">
@@ -256,6 +258,9 @@
              @loadedmetadata  ="videoAdapt"
              @loadeddata="videoload"
              @progress="videoprogress"
+			 @volumechange="volumechange"
+			 @pause="fixBar.show = true"
+			 @play="fixBar.show = false"
              :key="video.src"
              :src="'/video/' + video.src"
              poster controls preload="meta">
@@ -293,16 +298,16 @@
                 </b-btn>
               </b-btn-group>
               <b-btn-group>
-                <b-btn variant="outline-success" @click="server.dlna({opt: 'play'})">
+                <b-btn variant="outline-success" @click="server.dlna('play').then(window.appView.out).catch(window.appView.out)">
                     <i class="oi oi-media-play"></i>
                 </b-btn>
-                <b-btn class="ml-1" variant="outline-danger" @click="server.dlna({opt: 'pause'})">
+                <b-btn class="ml-1" variant="outline-danger" @click="server.dlna('pause').then(window.appView.out).catch(window.appView.out)">
                     <i class="oi oi-media-pause"></i>
                 </b-btn>
-                <b-btn class="ml-1" variant="outline-danger" @click="server.dlna({opt: 'stop'})">
+                <b-btn class="ml-1" variant="outline-danger" @click="server.dlna('stop').then(window.appView.out).catch(window.appView.out)">
                     <i class="oi oi-media-stop"></i>
                 </b-btn>
-                <b-btn class="ml-1" variant="outline-success" @click="server.dlna_next()">
+                <b-btn class="ml-1" variant="outline-success" @click="server.dlna_next().then(window.appView.out).catch(window.appView.out)">
                     <i class="oi oi-media-step-forward"></i>
                 </b-btn>
               </b-btn-group>
@@ -324,9 +329,9 @@
   <script src="/static/js/velocity.min.js"></script>
   <script src="/static/js/velocity.ui.min.js"></script>
   <script src="/static/js/axios.min.js"></script>
-  <script src="/static/js/reconnecting-websocket.min.js"></script>
+  <script src="{{ static_url('js/reconnecting-websocket.min.js') }}"></script>
   <script src="{{ static_url('js/hammer.min.js') }}"></script>
-  <script src="{{ static_url('js/jsonrpc-axios.js') }}"></script>
+  <script src="{{ static_url('js/jsonrpc.js') }}"></script>
   <script src="{{ static_url('js/common.js') }}"></script>
   <script src="{{ static_url('js/main.js') }}"></script>
 </html>

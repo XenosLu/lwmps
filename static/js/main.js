@@ -60,11 +60,10 @@ window.appView = new Vue({
         },
         watch: {
             'dlnaInfo.CurrentDMR': function () {
-                console.log(this.dlnaInfo.CurrentDMR);
                 if (!this.wpMode) {
                     if (typeof(this.dlnaInfo.CurrentDMR) === "undefined")
                         this.mode = '';
-                    else
+                    else if(this.dlnaInfo.CurrentDMR.indexOf('小米AI音箱')===-1)
                         this.mode = 'DLNA';
                 }
             },
@@ -84,10 +83,10 @@ window.appView = new Vue({
                 this.editMode = false;
             },
             'dlnaInfo.RelTime': function () {
-                console.log('reltime update');
+                // console.log('reltime update');
                 if (this.positionBarCanUpdate)
                     this.positionBarVal = timeToSecond(this.dlnaInfo.RelTime);
-                console.log(this.positionBarVal);
+                // console.log(this.positionBarVal);
             },
             mode: function () {
                 if (this.dlnaMode) {
@@ -216,11 +215,10 @@ window.appView = new Vue({
                 }
             },
             volUp: function (obj) {
-                // server.dlna_vol(['up']);
-                serverNew.dlna_vol('up').then(console.log).catch(console.log);
+                server.dlna_vol('up').then(window.appView.out).catch(window.appView.out);
             },
             volDown: function (obj) {
-                server.dlna_vol(['down']);
+                server.dlna_vol('down').then(window.appView.out).catch(window.appView.out);
             },
             pressOpen: function (obj) {
                 var target = obj.target.tagName === 'TD' ? obj.target : obj.target.parentNode;
@@ -231,6 +229,7 @@ window.appView = new Vue({
                 this.open(target.getAttribute('data-path'), target.getAttribute('data-type'));
             },
             showFixBar: function () { // show fix bar and then hide
+				console.log('show nav')
                 this.fixBar.show = true;
                 if (this.fixBar.timerId) {
                     clearTimeout(this.fixBar.timerId);
@@ -285,17 +284,17 @@ window.appView = new Vue({
                 this.history = data;
             },
             showHistory: function () {
-                server.list_history({}, this.historyCallBack);
+                server.list_history().then(this.historyCallBack).catch(window.appView.out);
                 this.historyShow = true;
             },
             fileSystemCallBack: function (data) {
                 this.filelist = data;
             },
             remove: function (obj) {
-                server.remove_history({src: obj}, this.historyCallBack);
+                server.remove_history(obj).then(this.historyCallBack).catch(window.appView.out);
             },
             move: function (obj) {
-                server.file_move({src: obj}, this.fileSystemCallBack);
+                server.file_move(obj).then(this.fileSystemCallBack).catch(window.appView.out);
                 if (this.historyShow)
                     this.showHistory();
             },
@@ -303,14 +302,14 @@ window.appView = new Vue({
                 switch (type) {
                 case "folder":
                     this.historyShow = false;
-                    server.file_list({path: obj}, this.fileSystemCallBack);
+                    server.file_list(obj).then(this.fileSystemCallBack).catch(window.appView.out);
                     break;
                 case "mp4":
                     if (!this.dlnaMode)
                         this.playInWeb(obj);
                 case "video":
                     if (this.dlnaMode)
-                        server.dlna_load({src: obj, host: window.location.host});
+                        server.dlna_load(obj, window.location.host).then(window.appView.out).catch(window.appView.out);
                     break;
                 default:
                 }
@@ -323,7 +322,6 @@ window.appView = new Vue({
                 return true;
             },
             playInWeb: function (obj) {
-                console.log(obj);
                 if (!this.checkFileExist(obj)) {
                     this.out(obj + ' not exist');
                     return;
@@ -333,11 +331,11 @@ window.appView = new Vue({
                 this.browserShow = false;
             },
             setDmr: function (dmr) {
-                server.dlna_set_dmr({dmr: dmr}, () => {this.mode='DLNA';});
+                server.dlna_set_dmr(dmr).then(() => {this.mode='DLNA';}).catch(window.appView.out);
             },
             positionSeek: function () {
                 var position = secondToTime(offset_value(timeToSecond(this.dlnaInfo.RelTime), this.positionBarVal, this.positionBarMax));
-                server.dlna_seek({position: position});
+                server.dlna_seek(position).then(window.appView.out).catch(window.appView.out);
                 this.positionBarCanUpdate = true;
             },
             positionShow: function () {
@@ -350,24 +348,25 @@ window.appView = new Vue({
             },
             seek: function (position) {
               if (this.dlnaMode)
-                server.dlna_seek({position: secondToTime(position)});
+                  server.dlna_seek(secondToTime(position)).then(window.appView.out).catch(window.appView.out);
               else if (this.wpMode)
-                this.$refs.video.currentTime = position;
+                  this.$refs.video.currentTime = position;
             },
             videosave: function () {
                 this.video.lastplaytime = new Date().getTime(); //to detect if video is playing
                 if (this.$refs.video.readyState === 4 && Math.floor(Math.random() * 99) > 70) //randomly save play position
-                    server.save_history({
-                        src: this.video.src,
-                        position: this.$refs.video.currentTime,
-                        duration: this.$refs.video.duration,
-                    }, null);
+                    server.save_history(this.video.src, this.$refs.video.currentTime, this.$refs.video.duration).catch(window.appView.out);
             },
+			volumechange: function () {
+				console.log(this.$refs.video.volume)
+				localStorage.volume = this.$refs.video.volume;
+			},
             videoload: function () {
                 this.videoAdapt();
-                this.out('adpat');
+                this.out('adapt');
                 this.$refs.video.currentTime = Math.max(this.wpPosition - 0.5, 0);
                 this.output.smallText = "Play from";
+				this.$refs.video.volume = localStorage.volume;
             },
             videoseek: function () { //show position when changed
                 this.out(secondToTime(this.$refs.video.currentTime) + '/' + secondToTime(this.$refs.video.duration));
@@ -394,7 +393,7 @@ window.appView = new Vue({
                 newtime = Math.min(newtime, this.positionBarMax);
                 this.out(secondToTime(newtime));
                 if (obj.type.indexOf("swipe") != -1) {
-                    server.dlna_seek({position: secondToTime(newtime)});
+                    server.dlna_seek(secondToTime(newtime)).then(window.appView.out).catch(window.appView.out);
                     console.log('swipe');
                 } else
                     console.log('pan');
@@ -456,10 +455,10 @@ var connApi = webSocketLink({
                 if (data.hasOwnProperty('result')) {
                     var callback = methods[data.id];
                     delete methods[data.id];
-                    if (typeof(callback) === 'undefined')
-                        callback = window.appView.out;
+                    if (typeof(callback.resolve) === 'undefined')
+                        callback.resolve = window.appView.out;
                     if (callback)
-                        callback(data.result);
+                        callback.resolve(data.result);
                 } else
                     errorCallback(data.error);
             } else
@@ -473,31 +472,15 @@ var connApi = webSocketLink({
             window.appView.out('connected');
         }
     });
+    
 
-function JsonRpcWs() {
-    return new Proxy(function () {}, {
-        get: function (target, method, receiver) {
-            return function (params, callback) {
-                var json_data = {
-                    jsonrpc: '2.0',
-                    method: method,
-                    params: params,
-                    id: Math.floor(Math.random() * 9999)
-                };
-                connApi.send(JSON.stringify(json_data));
-                methods[json_data.id] = callback;
-            }
-        }
+function jsonrpcWS(jsonData) {
+    return new Promise(function (resolve, reject) {
+        connApi.send(JSON.stringify(jsonData));
+        methods[jsonData.id] = {resolve:resolve, reject:reject};
     });
 }
 
 
-// if (window.appView.devMode)
-    // var server = JsonRpcWs();
-// else
-var server = JsonRpcOld({
-        url: '/api',
-        callback: window.appView.out
-    });
-
-var serverNew = JsonRpc('/api');
+//const server = JsonRpc(jsonrpcAxios('/api'));
+var server = JsonRpc(jsonrpcWS);

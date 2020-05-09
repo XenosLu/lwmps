@@ -40,36 +40,6 @@ function offset_value(current, value, max) {
     return Math.round(current + Math.abs(Math.pow(s, 3)) * (value - current));
 }
 
-/**
- * json rpc
- * @param options{url,callback}
- */
-function JsonRpcOld(options) {
-    return new Proxy(function () {}, {
-        get: function (target, method, receiver) {
-            var errorCallback = options.callback;
-            return function (params, callback) {
-                if (typeof(callback) == "undefined")
-                    callback = options.callback;
-                var json_data = {
-                    jsonrpc: '2.0',
-                    method: method,
-                    params: params,
-                    id: Math.floor(Math.random() * 9999)
-                };
-                axios.post(options.url, json_data).then(function (response) {
-                    if (response.data.hasOwnProperty('result'))
-                        callback(response.data.result);
-                    else
-                        errorCallback(response.data.error);
-                }).catch(function (error) {
-                    errorCallback(error.response.statusText);
-                });
-            };
-        }
-    });
-}
-
 function vueTouch(el, type, binding) {
     this.el = el;
     this.type = type;
